@@ -1,0 +1,52 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace "com.thor.mph"
+    compileSdkVersion 34
+    ndkVersion "27.2.12479018"
+    defaultConfig {
+        applicationId "com.thor.mph"
+        minSdkVersion 30
+        targetSdkVersion 34
+        versionCode 1
+        versionName "0.1"
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared"
+                abiFilters 'arm64-v8a'
+                // Gradle's debug variant compiles native code at -O0, which is
+                // ruinous for the recompiled ARM banks (they ARE the CPU
+                // emulation). Force -O2 so on-device speed matches the -O2
+                // desktop build.
+                cFlags "-O2", "-DNDEBUG"
+                cppFlags "-O2", "-DNDEBUG"
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    applicationVariants.all { variant ->
+        tasks["merge${variant.name.capitalize()}Assets"]
+            .dependsOn("externalNativeBuild${variant.name.capitalize()}")
+    }
+    sourceSets.main {
+        jniLibs.srcDir 'libs'
+    }
+    externalNativeBuild {
+        cmake {
+            path 'jni/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+}

@@ -1,0 +1,6 @@
+.gradle/
+app/build/
+app/.cxx/
+local.properties
+app/src/main/assets/*.nds
+*.nds

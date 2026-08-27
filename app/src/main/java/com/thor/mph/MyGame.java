@@ -86,6 +86,10 @@ public class MyGame extends SDLActivity {
             // (main.cpp: mph_mouse_aim_policy).
             "--relative-mouse-touch", "on",
             "--mph-pad-aim-sensitivity", "100",
+            // HD: render the 3D engine at 3x internal resolution via the GLES
+            // compute renderer, with 2x texture filtering.
+            "--internal-resolution", "3",
+            "--texture-upscale", "2",
             "--no-save",
         };
     }

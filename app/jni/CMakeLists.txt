@@ -9,7 +9,7 @@ add_subdirectory(SDL/SDL2 ${CMAKE_BINARY_DIR}/SDL2-build)
 # title-bank Android build. Set before add_subdirectory so the runner picks
 # them up as normal (non-cache) variables.
 set(NDS_BOOTSTRAP_FIRMWARE ON CACHE BOOL "" FORCE)
-set(NDS_ENABLE_COMPUTE_RENDERER OFF CACHE BOOL "" FORCE)
+set(NDS_ENABLE_COMPUTE_RENDERER ON CACHE BOOL "" FORCE)
 set(NDS_TITLE_BANK_DIR
     "/Users/ameezy/MetroidPrimeHuntersRecomp/generated/recomp"
     CACHE PATH "" FORCE)

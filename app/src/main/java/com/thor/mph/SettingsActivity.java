@@ -265,8 +265,18 @@ public class SettingsActivity extends Activity {
         // ── Video card ───────────────────────────────────────────────────
         LinearLayout video = card(root, "VIDEO");
         addSpinner(video, "Internal resolution (3D)", "internal_res",
-            new String[]{"1x (native 256×192)", "2x", "3x (1344×576)", "4x"},
+            new String[]{"1x (native 256×192)", "2x (896×384)",
+                         "3x (1344×576) · recommended",
+                         "4x (1792×768) · sharper, slight audio crackle"},
             new String[]{"1", "2", "3", "4"}, "3");
+        TextView resNote = new TextView(this);
+        resNote.setText("3x is the recommended Thor setting: HD and within the "
+            + "frame budget. 4x is sharper but the CPU waits on the GPU each "
+            + "frame, which can add a little audio crackle.");
+        resNote.setTextColor(DIM);
+        resNote.setTextSize(12);
+        resNote.setPadding(0, dp(2), 0, dp(8));
+        video.addView(resNote);
         addSpinner(video, "Texture upscaling (xBR)", "tex_upscale",
             new String[]{"Off", "2x", "4x"},
             new String[]{"1", "2", "4"}, "2");

@@ -52,6 +52,14 @@ public class MyGame extends SDLActivity {
     }
 
     @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        // Re-attach the second screen whenever we come back to the front
+        // (covers focus transitions where onResume does not re-fire).
+        if (hasFocus) setupSecondDisplay();
+    }
+
+    @Override
     protected void onDestroy() {
         if (secondPresentation != null) {
             secondPresentation.dismiss();
@@ -155,6 +163,14 @@ public class MyGame extends SDLActivity {
 
         Presentation p = new Presentation(this, target);
         p.setContentView(view);
+        // If the system (or a hardware shortcut) dismisses the second-screen
+        // window, forget it so the next onResume() rebuilds it. Without this
+        // the stale reference blocks re-attach and the bottom screen never
+        // comes back after leaving and returning to the app.
+        p.setOnDismissListener(d -> {
+            secondPresentation = null;
+            nativeSetSecondSurface(null);
+        });
         try {
             p.show();
             secondPresentation = p;

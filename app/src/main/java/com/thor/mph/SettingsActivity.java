@@ -66,6 +66,9 @@ public class SettingsActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        // Provision the app-owned external files dir on first open so users
+        // (and adb) can drop mph.nds into a folder the app can actually read.
+        getExternalFilesDir(null);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(BG);

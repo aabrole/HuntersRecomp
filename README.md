@@ -110,6 +110,21 @@ cd ThorMPH && ./gradlew assembleRelease
 - **Texture upscaling**: Hyllian's xBR-lv2 (MIT)
 - **SDL2**: [libsdl-org/SDL](https://github.com/libsdl-org/SDL)
 
+## Bug fixers and playtesters
+
+Feedback Round 1 (launch thread on r/AynThor) — thank you for testing on real
+hardware and reporting with detail ([full log](docs/FEEDBACK-ROUND-1.md)):
+
+**Bug reports:** u/Giodude12, u/chur-bo-baggins, u/treesdotcom,
+u/HighFivePondaBaba, u/Playtimegoofball
+
+**Feature requests:** u/Xion_Stellar, u/Am3n, u/Luna_the_Miqo,
+u/Chompsky___Honk, u/FyrusCarmin, u/JTiberius21
+
+**Playtesting and encouragement:** u/arnar62, u/Eyerone, u/Alexan_Hirdriel,
+u/LeSpermReceiver, u/galaxywalaxyz, u/marshmallown, u/HuttStuff_Here,
+u/blaster915, u/Rekusu7991, u/Gearheadjunky
+
 ## License and legal
 
 This project's code is licensed under the **GPL-3.0** (see [LICENSE](LICENSE)),

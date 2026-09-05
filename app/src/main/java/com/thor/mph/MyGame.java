@@ -56,7 +56,24 @@ public class MyGame extends SDLActivity {
         super.onWindowFocusChanged(hasFocus);
         // Re-attach the second screen whenever we come back to the front
         // (covers focus transitions where onResume does not re-fire).
-        if (hasFocus) setupSecondDisplay();
+        if (hasFocus) {
+            setupSecondDisplay();
+            enterImmersiveMode();
+        }
+    }
+
+    // Hide the status and navigation bars while playing (immersive sticky:
+    // a swipe peeks them temporarily). Without this the Android nav/home bar
+    // overlays the game on units with navigation buttons enabled.
+    private void enterImmersiveMode() {
+        android.view.Window w = getWindow();
+        w.setDecorFitsSystemWindows(false);
+        android.view.WindowInsetsController c = w.getInsetsController();
+        if (c != null) {
+            c.hide(android.view.WindowInsets.Type.systemBars());
+            c.setSystemBarsBehavior(android.view.WindowInsetsController
+                .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        }
     }
 
     @Override

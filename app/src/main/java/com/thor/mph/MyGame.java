@@ -93,7 +93,10 @@ public class MyGame extends SDLActivity {
             // AMHE0 direct-aim gate: right-stick/touch aim deltas feed the
             // game's own aim fields (main.cpp: mph_mouse_aim_policy).
             "--relative-mouse-touch", "on",
-            "--no-save");
+            // Persist the cartridge flash save next to the ROM so in-game
+            // saves (at the ship) survive restarts.
+            "--save-path", new File(getExternalFilesDir(null), "mph.sav")
+                .getAbsolutePath());
         // ── User settings (SettingsActivity) ─────────────────────────────
         args.add("--mph-pad-aim-sensitivity");
         args.add(String.valueOf(prefs.getInt("aim_sens", 100)));

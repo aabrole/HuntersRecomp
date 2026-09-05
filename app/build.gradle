@@ -8,8 +8,8 @@ android {
         applicationId "com.thor.mph"
         minSdkVersion 30
         targetSdkVersion 34
-        versionCode 3
-        versionName "0.2.1"
+        versionCode 4
+        versionName "0.2.2"
         externalNativeBuild {
             cmake {
                 arguments "-DANDROID_STL=c++_shared"

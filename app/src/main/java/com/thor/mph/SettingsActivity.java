@@ -178,10 +178,43 @@ public class SettingsActivity extends Activity {
         sub2.setText("Recomped for AYN Thor · github.com/aabrole");
         sub2.setTextColor(ACCENT);
         sub2.setTextSize(13);
+        // Update reminder, tappable: opens the GitHub releases page where the
+        // latest APKs live.
+        TextView update = new TextView(this);
+        update.setText(android.text.Html.fromHtml(
+            "<u>Make sure you're running the latest version</u>",
+            android.text.Html.FROM_HTML_MODE_LEGACY));
+        update.setTextColor(Color.parseColor("#E8C468"));
+        update.setTextSize(13);
+        update.setOnClickListener(v -> startActivity(new Intent(
+            Intent.ACTION_VIEW, android.net.Uri.parse(
+                "https://github.com/aabrole/HuntersRecomp/releases"))));
         titles.addView(title);
         titles.addView(sub);
         titles.addView(sub2);
-        header.addView(titles);
+        titles.addView(update);
+        header.addView(titles, new LinearLayout.LayoutParams(0,
+            ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        // Installed version, top-right; tap also opens the releases page.
+        TextView version = new TextView(this);
+        String vn;
+        try {
+            vn = "v" + getPackageManager()
+                .getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) { vn = "v?"; }
+        version.setText(vn);
+        version.setTextColor(DIM);
+        version.setTextSize(14);
+        version.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        version.setGravity(Gravity.TOP | Gravity.END);
+        version.setOnClickListener(v -> startActivity(new Intent(
+            Intent.ACTION_VIEW, android.net.Uri.parse(
+                "https://github.com/aabrole/HuntersRecomp/releases"))));
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT);
+        vlp.gravity = Gravity.TOP;
+        header.addView(version, vlp);
         root.addView(header);
 
         // ── ROM status / locate flow ─────────────────────────────────────

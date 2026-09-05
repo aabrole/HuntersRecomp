@@ -8,6 +8,7 @@ add_subdirectory(SDL/SDL2 ${CMAKE_BINARY_DIR}/SDL2-build)
 # Options the ndsrecomp runner needs for the Metroid Prime Hunters (AMHE0)
 # title-bank Android build. Set before add_subdirectory so the runner picks
 # them up as normal (non-cache) variables.
+set(NDS_SDL_BACKEND SDL2 CACHE STRING "" FORCE)
 set(NDS_BOOTSTRAP_FIRMWARE ON CACHE BOOL "" FORCE)
 set(NDS_ENABLE_COMPUTE_RENDERER ON CACHE BOOL "" FORCE)
 set(NDS_TITLE_BANK_DIR

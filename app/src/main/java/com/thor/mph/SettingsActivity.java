@@ -270,6 +270,9 @@ public class SettingsActivity extends Activity {
         addSpinner(video, "Texture upscaling (xBR)", "tex_upscale",
             new String[]{"Off", "2x", "4x"},
             new String[]{"1", "2", "4"}, "2");
+        addSpinner(video, "Bottom screen", "bottom_aspect",
+            new String[]{"Original 4:3", "Stretch to fill"},
+            new String[]{"fit", "stretch"}, "fit");
 
         // ── Controls card ────────────────────────────────────────────────
         LinearLayout controls = card(root, "CONTROLS");

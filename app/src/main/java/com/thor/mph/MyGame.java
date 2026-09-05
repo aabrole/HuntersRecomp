@@ -32,6 +32,7 @@ public class MyGame extends SDLActivity {
     public static native void nativeSetSecondSurface(Surface surface);
     public static native void nativeSecondScreenTouch(float nx, float ny,
                                                       boolean down);
+    public static native void nativeSetSecondScreenStretch(boolean stretch);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +44,10 @@ public class MyGame extends SDLActivity {
         romPath = new File(dir, "mph.nds").getAbsolutePath();
 
         super.onCreate(savedInstanceState);
+        // Bottom-screen presentation preference (native side defaults to 4:3).
+        nativeSetSecondScreenStretch(
+            getSharedPreferences(SettingsActivity.PREFS, MODE_PRIVATE)
+                .getString("bottom_aspect", "fit").equals("stretch"));
     }
 
     @Override

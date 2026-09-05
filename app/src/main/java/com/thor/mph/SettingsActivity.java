@@ -60,7 +60,83 @@ public class SettingsActivity extends Activity {
     static final int TEXT = Color.parseColor("#E8E2D8");
     static final int DIM = Color.parseColor("#8A8578");
 
+    static final String ROM_SHA1 = "90164d1ac127ee5f9815ea4ae7de798c7b5fc629";
+    static final long ROM_SIZE = 67108864L;
+
     private SharedPreferences prefs;
+    private TextView romStatus;
+    private Button locateButton;
+
+    private java.io.File romFile() {
+        return new java.io.File(getExternalFilesDir(null), "mph.nds");
+    }
+
+    private void refreshRomStatus() {
+        java.io.File rom = romFile();
+        if (rom.exists() && rom.length() == ROM_SIZE) {
+            romStatus.setText("ROM: found (Metroid Prime Hunters, USA rev 0)");
+            romStatus.setTextColor(Color.parseColor("#7FC97F"));
+            locateButton.setVisibility(View.GONE);
+        } else {
+            romStatus.setText("ROM not found. This app includes no game data: "
+                + "provide your own dump of Metroid Prime Hunters (USA rev 0, "
+                + "64 MiB). Tap LOCATE ROM and pick your .nds file.");
+            romStatus.setTextColor(Color.parseColor("#E07A5F"));
+            locateButton.setVisibility(View.VISIBLE);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int req, int result, Intent data) {
+        super.onActivityResult(req, result, data);
+        if (req != 41 || result != RESULT_OK || data == null
+                || data.getData() == null) return;
+        android.net.Uri uri = data.getData();
+        romStatus.setText("Copying and verifying ROM…");
+        romStatus.setTextColor(DIM);
+        new Thread(() -> {
+            String error = null;
+            java.io.File dest = romFile();
+            try (java.io.InputStream in =
+                     getContentResolver().openInputStream(uri);
+                 java.io.OutputStream out =
+                     new java.io.FileOutputStream(dest)) {
+                java.security.MessageDigest md =
+                    java.security.MessageDigest.getInstance("SHA-1");
+                byte[] buf = new byte[1 << 16];
+                long total = 0;
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    out.write(buf, 0, n);
+                    md.update(buf, 0, n);
+                    total += n;
+                }
+                StringBuilder hex = new StringBuilder();
+                for (byte b : md.digest())
+                    hex.append(String.format("%02x", b));
+                if (total != ROM_SIZE)
+                    error = "That file is " + total
+                        + " bytes; the USA rev 0 cartridge is 64 MiB.";
+                else if (!hex.toString().equals(ROM_SHA1))
+                    error = "That dump is not USA revision 0 (SHA-1 "
+                        + "mismatch). Rev 1 and other regions cannot work: "
+                        + "the recompiled code was generated from rev 0.";
+            } catch (Exception e) {
+                error = "Copy failed: " + e.getMessage();
+            }
+            final String err = error;
+            runOnUiThread(() -> {
+                if (err != null) {
+                    romFile().delete();
+                    romStatus.setText(err);
+                    romStatus.setTextColor(Color.parseColor("#E07A5F"));
+                    locateButton.setVisibility(View.VISIBLE);
+                } else {
+                    refreshRomStatus();
+                }
+            });
+        }).start();
+    }
 
     @Override
     protected void onCreate(Bundle state) {
@@ -108,6 +184,25 @@ public class SettingsActivity extends Activity {
         header.addView(titles);
         root.addView(header);
 
+        // ── ROM status / locate flow ─────────────────────────────────────
+        romStatus = new TextView(this);
+        romStatus.setTextSize(13);
+        romStatus.setPadding(dp(4), dp(10), 0, 0);
+        root.addView(romStatus);
+        locateButton = new Button(this);
+        locateButton.setText("LOCATE ROM…");
+        locateButton.setTextColor(ACCENT);
+        locateButton.setBackgroundColor(CARD);
+        locateButton.setOnClickListener(v -> {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("*/*");
+            startActivityForResult(pick, 41);
+        });
+        root.addView(locateButton, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
+        refreshRomStatus();
+
         // ── Play button ──────────────────────────────────────────────────
         Button play = new Button(this);
         play.setText("▶  PLAY");
@@ -122,8 +217,16 @@ public class SettingsActivity extends Activity {
         LinearLayout.LayoutParams playLp = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, dp(64));
         playLp.topMargin = dp(18);
-        play.setOnClickListener(v ->
-            startActivity(new Intent(this, MyGame.class)));
+        play.setOnClickListener(v -> {
+            if (romFile().exists() && romFile().length() == ROM_SIZE) {
+                startActivity(new Intent(this, MyGame.class));
+            } else {
+                // No ROM: send the user through the locate flow instead of
+                // booting into a black screen.
+                refreshRomStatus();
+                locateButton.performClick();
+            }
+        });
         root.addView(play, playLp);
 
         // ── Video card ───────────────────────────────────────────────────

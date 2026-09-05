@@ -279,6 +279,7 @@ public class SettingsActivity extends Activity {
         addSlider(controls, "Right-stick aim sensitivity", "aim_sens", 10, 400, 100);
         addSlider(controls, "Virtual stylus sensitivity", "stylus_sens", 10, 400, 20);
         addSwitch(controls, "Invert aim Y axis", "invert_y", false);
+        addSwitch(controls, "Show FPS counter", "show_fps", false);
         TextView hint = new TextView(this);
         hint.setText("Hold SELECT for fast-forward (skips slow cinematics). "
             + "START skips FMVs in-game.");
@@ -309,6 +310,17 @@ public class SettingsActivity extends Activity {
             recreate();
         });
         binds.addView(reset);
+
+        // ── Diagnostics sharing ──────────────────────────────────────────
+        Button share = new Button(this);
+        share.setText("SHARE DIAGNOSTICS (for bug reports)");
+        share.setTextColor(ACCENT);
+        share.setBackgroundColor(CARD);
+        share.setOnClickListener(v -> shareDiagnostics());
+        LinearLayout.LayoutParams shareLp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        shareLp.topMargin = dp(18);
+        root.addView(share, shareLp);
 
         // ── Credits ──────────────────────────────────────────────────────
         TextView credits = new TextView(this);
@@ -374,14 +386,41 @@ public class SettingsActivity extends Activity {
 
     private void addSwitch(LinearLayout parent, String label, String key,
                            boolean def) {
-        Switch sw = new Switch(this);
-        sw.setText(label);
-        sw.setTextColor(TEXT);
-        sw.setTextSize(14);
-        sw.setChecked(prefs.getBoolean(key, def));
-        sw.setOnCheckedChangeListener((b, checked) ->
-            prefs.edit().putBoolean(key, checked).apply());
-        parent.addView(sw);
+        // Theme-proof toggle: the stock Switch is invisible on this legacy
+        // theme, so render our own ON/OFF pill button.
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(8), 0, dp(8));
+        TextView tv = new TextView(this);
+        tv.setText(label);
+        tv.setTextColor(TEXT);
+        tv.setTextSize(14);
+        row.addView(tv, new LinearLayout.LayoutParams(0,
+            ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        Button pill = new Button(this);
+        pill.setAllCaps(true);
+        pill.setTextSize(13);
+        pill.setTypeface(Typeface.DEFAULT_BOLD);
+        pill.setMinWidth(dp(88));
+        pill.setMinimumWidth(dp(88));
+        java.util.function.Consumer<Boolean> paint = on -> {
+            pill.setText(on ? "ON" : "OFF");
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(20));
+            bg.setColor(on ? ACCENT : Color.parseColor("#3A414B"));
+            pill.setBackground(bg);
+            pill.setTextColor(on ? Color.parseColor("#14100A") : DIM);
+        };
+        paint.accept(prefs.getBoolean(key, def));
+        pill.setOnClickListener(v -> {
+            boolean next = !prefs.getBoolean(key, def);
+            prefs.edit().putBoolean(key, next).apply();
+            paint.accept(next);
+        });
+        row.addView(pill, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)));
+        parent.addView(row);
     }
 
     private void addSpinner(LinearLayout parent, String label, String key,
@@ -437,6 +476,61 @@ public class SettingsActivity extends Activity {
         });
         row.addView(spin);
         parent.addView(row);
+    }
+
+    // Zip the diagnostics folder plus a device/settings summary and open the
+    // share sheet, so reporters can attach one file to a GitHub issue.
+    private void shareDiagnostics() {
+        try {
+            java.io.File dir = new java.io.File(getExternalFilesDir(null),
+                "diagnostics");
+            java.io.File zip = new java.io.File(getExternalFilesDir(null),
+                "huntersrecomp-diagnostics.zip");
+            try (java.util.zip.ZipOutputStream out =
+                     new java.util.zip.ZipOutputStream(
+                         new java.io.FileOutputStream(zip))) {
+                StringBuilder info = new StringBuilder();
+                info.append("device: ").append(android.os.Build.MANUFACTURER)
+                    .append(" ").append(android.os.Build.MODEL)
+                    .append(" (").append(android.os.Build.DEVICE).append(")\n")
+                    .append("android: ").append(
+                        android.os.Build.VERSION.RELEASE).append("\n")
+                    .append("app: ").append(getPackageManager()
+                        .getPackageInfo(getPackageName(), 0).versionName)
+                    .append("\n").append("settings: ")
+                    .append(prefs.getAll().toString()).append("\n");
+                out.putNextEntry(new java.util.zip.ZipEntry("device-info.txt"));
+                out.write(info.toString().getBytes());
+                out.closeEntry();
+                java.io.File[] files = dir.listFiles();
+                if (files != null) {
+                    for (java.io.File f : files) {
+                        if (!f.isFile()) continue;
+                        out.putNextEntry(
+                            new java.util.zip.ZipEntry(f.getName()));
+                        try (java.io.FileInputStream in =
+                                 new java.io.FileInputStream(f)) {
+                            byte[] buf = new byte[1 << 16];
+                            int n;
+                            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        }
+                        out.closeEntry();
+                    }
+                }
+            }
+            android.net.Uri uri = androidx.core.content.FileProvider
+                .getUriForFile(this, "com.thor.mph.files", zip);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("application/zip");
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(send,
+                "Share diagnostics zip"));
+        } catch (Exception e) {
+            android.widget.Toast.makeText(this,
+                "Could not build diagnostics zip: " + e.getMessage(),
+                android.widget.Toast.LENGTH_LONG).show();
+        }
     }
 
     private int dp(int v) {

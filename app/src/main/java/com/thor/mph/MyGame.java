@@ -33,6 +33,7 @@ public class MyGame extends SDLActivity {
     public static native void nativeSecondScreenTouch(float nx, float ny,
                                                       boolean down);
     public static native void nativeSetSecondScreenStretch(boolean stretch);
+    public static native void nativeFlushDurableState();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,6 +45,13 @@ public class MyGame extends SDLActivity {
         romPath = new File(dir, "mph.nds").getAbsolutePath();
 
         super.onCreate(savedInstanceState);
+        // Ask Android to hold clocks steady instead of thermal see-sawing;
+        // ignored gracefully on devices that do not support it.
+        try { getWindow().setSustainedPerformanceMode(true); }
+        catch (Throwable ignored) {}
+        if (getSharedPreferences(SettingsActivity.PREFS, MODE_PRIVATE)
+                .getBoolean("show_fps", false))
+            startFpsOverlay();
         // Bottom-screen presentation preference (native side defaults to 4:3).
         nativeSetSecondScreenStretch(
             getSharedPreferences(SettingsActivity.PREFS, MODE_PRIVATE)
@@ -54,6 +62,13 @@ public class MyGame extends SDLActivity {
     protected void onResume() {
         super.onResume();
         setupSecondDisplay();
+    }
+
+    @Override
+    protected void onPause() {
+        // Persist what a swipe-away would lose: coverage part + dirty save.
+        try { nativeFlushDurableState(); } catch (Throwable ignored) {}
+        super.onPause();
     }
 
     @Override
@@ -118,7 +133,16 @@ public class MyGame extends SDLActivity {
             // Persist the cartridge flash save next to the ROM so in-game
             // saves (at the ship) survive restarts.
             "--save-path", new File(getExternalFilesDir(null), "mph.sav")
-                .getAbsolutePath());
+                .getAbsolutePath(),
+            // Alpha diagnostics: per-second perf/audio counters written where
+            // adb (and bug reporters) can pull them.
+            "--diagnostics", "on",
+            "--diagnostics-dir", new File(getExternalFilesDir(null),
+                "diagnostics").getAbsolutePath(),
+            "--diagnostics-interval-ms", "1000",
+            // Record static-bank Tier-3 miss targets so every player session
+            // produces a promotable coverage manifest.
+            "--discover-static-misses");
         // ── User settings (SettingsActivity) ─────────────────────────────
         args.add("--mph-pad-aim-sensitivity");
         args.add(String.valueOf(prefs.getInt("aim_sens", 100)));
@@ -202,6 +226,68 @@ public class MyGame extends SDLActivity {
         } catch (Exception e) {
             android.util.Log.e("ThorMPH", "second display show failed", e);
         }
+    }
+
+    // True engine FPS counter: the runner writes per-second perf records to
+    // the diagnostics JSONL; tail the newest file and surface fps + audio
+    // underruns. Engine truth, not a SurfaceFlinger guess.
+    private android.widget.TextView fpsView;
+    private final android.os.Handler fpsHandler =
+        new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable fpsTick = new Runnable() {
+        @Override public void run() {
+            try {
+                File dir = new File(getExternalFilesDir(null), "diagnostics");
+                File[] files = dir.listFiles((d, n) -> n.startsWith("performance-"));
+                if (files != null && files.length > 0) {
+                    File newest = files[0];
+                    for (File f : files)
+                        if (f.lastModified() > newest.lastModified()) newest = f;
+                    String last = null;
+                    try (java.io.RandomAccessFile raf =
+                             new java.io.RandomAccessFile(newest, "r")) {
+                        long len = raf.length();
+                        long start = Math.max(0, len - 4096);
+                        raf.seek(start);
+                        byte[] buf = new byte[(int) (len - start)];
+                        raf.readFully(buf);
+                        String[] lines = new String(buf).split("\n");
+                        for (int i = lines.length - 1; i >= 0; --i)
+                            if (lines[i].contains("\"fps\"")) { last = lines[i]; break; }
+                    }
+                    if (last != null) {
+                        org.json.JSONObject o = new org.json.JSONObject(last);
+                        double fps = o.optDouble("fps", 0);
+                        int und = o.optInt("underruns_delta", 0);
+                        fpsView.setText(String.format(java.util.Locale.US,
+                            "%.0f FPS%s", fps, und > 0 ? " ·" + und + "⚠" : ""));
+                        fpsView.setTextColor(fps >= 55 ? 0xFF7FC97F
+                            : fps >= 40 ? 0xFFE8C468 : 0xFFE07A5F);
+                    }
+                }
+            } catch (Exception ignored) {}
+            fpsHandler.postDelayed(this, 1000);
+        }
+    };
+
+    private void startFpsOverlay() {
+        fpsView = new android.widget.TextView(this);
+        fpsView.setTextSize(14);
+        fpsView.setTypeface(android.graphics.Typeface.MONOSPACE,
+            android.graphics.Typeface.BOLD);
+        fpsView.setTextColor(0xFF7FC97F);
+        fpsView.setBackgroundColor(0x66000000);
+        int p = Math.round(6 * getResources().getDisplayMetrics().density);
+        fpsView.setPadding(p, p / 2, p, p / 2);
+        android.widget.FrameLayout.LayoutParams lp =
+            new android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.Gravity.TOP | android.view.Gravity.END);
+        lp.topMargin = p;
+        lp.rightMargin = p;
+        addContentView(fpsView, lp);
+        fpsHandler.postDelayed(fpsTick, 1500);
     }
 
     private void copyAsset(String name, File dest) {

@@ -75,9 +75,9 @@ Everything is rebindable from the settings screen.
 
 ## Building from source
 
-The app shell (this repo) wraps the runner from a patched
-[ndsrecomp](https://github.com/mstan/ndsrecomp) checkout (branch
-`thor-android-port`: Android/GLES/dual-screen support). The recompiled game
+The app shell (this repo) wraps the runner from the patched
+[aabrole/ndsrecomp](https://github.com/aabrole/ndsrecomp/tree/thor-android-port)
+fork (branch `thor-android-port`: Android/GLES/dual-screen support). The recompiled game
 banks are generated at build time from *your* ROM by the upstream
 [MetroidPrimeHuntersRecomp](https://github.com/mstan/MetroidPrimeHuntersRecomp)
 project; they are not distributed in source form.

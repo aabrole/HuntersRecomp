@@ -12,6 +12,16 @@
 
 ---
 
+## See it running
+
+<p align="center">
+  <a href="https://youtube.com/shorts/t5mwzJvtyqY">
+    <img src="https://img.youtube.com/vi/t5mwzJvtyqY/maxresdefault.jpg" width="320" alt="Metroid Prime Hunters running on the AYN Thor (YouTube Short)" />
+  </a>
+  <br/>
+  <sub><b><a href="https://youtube.com/shorts/t5mwzJvtyqY">▶ Watch: dual-screen gameplay on the Thor</a></b></sub>
+</p>
+
 ## What is this?
 
 A native Android port of

@@ -53,3 +53,24 @@ Release under test: v0.2.3. Every reporter is credited in the README.
 5. B8 renderer/res diagnostics surfaced in the settings screen
 6. B6 audio-queue work
 7. B9/B10 repro with reporters
+
+## Performance investigation (Sept 5, evening) — measured on the dev Thor Pro
+
+Method: the runner's per-second diagnostics (fps, emulation ms/frame, audio
+underruns, interpreter instructions, dispatch counters) over the same
+90-second boot/FMV/attract window each round, which is the game's worst content.
+
+| Round | Change | fps avg | emu ms avg / max | underruns | interpreted instr/s |
+|---|---|---|---|---|---|
+| Baseline (v0.2.3/v0.2.4 engine) | | 37.4 | 28.6 / 46.4 | 2,019 | 7.5M |
+| 1 | ARM9 ITCM alias bank (game copies arm9.bin code into ITCM; no bank declared there) | 45.8 | 20.3 / 28.7 | 1,249 | 5.0M |
+| 2 | + 15 device-captured runtime banks (overlay code generations) | 53.7 | 15.2 / 27.9 | 639 | 766K |
+| 5 | + every Tier-3 root as a seed (WRONG: split straight-line code per instruction, 5.7M fallthrough dispatches/s) | 50.4 | 17.5 / 26.6 | 926 | 151K |
+| 6 | roots reduced to run heads (first address of each contiguous interpreted run) + audio: 125 ms runway, soft underruns | 58.3 | 13.5 / 16.4 | 248 | 199K |
+
+Findings
+- The audio crunch was CPU under-speed: emulation over the 16.6 ms frame budget starves the SDL queue, and each starvation was hard zero-filled (a click). The GPU was never the bottleneck (present < 2.5 ms).
+- Post-save fps collapse (u/Playtimegoofball): the cartridge save was flushed synchronously, 256 KiB per SPI transaction, on the emulation thread. Now debounced on Android.
+- Remaining budget: ~3.5 ms/frame of the emulation time is the emu thread waiting on the compute renderer's sync at 4x internal resolution (profile_totals.gpu3d_compute_sync_ns). 3x is the recommended setting until that sync is pipelined.
+
+Reproducibility: alias/entry-point seeds are addresses only (coverage/*.json in the bank generator); runtime bank images come from the player's own session and are not committed.

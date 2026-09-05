@@ -45,10 +45,9 @@ public class MyGame extends SDLActivity {
         romPath = new File(dir, "mph.nds").getAbsolutePath();
 
         super.onCreate(savedInstanceState);
-        // Ask Android to hold clocks steady instead of thermal see-sawing;
-        // ignored gracefully on devices that do not support it.
-        try { getWindow().setSustainedPerformanceMode(true); }
-        catch (Throwable ignored) {}
+        // NOTE: setSustainedPerformanceMode(true) was tried and removed: it
+        // caps CPU/GPU clocks at a thermally sustainable level, which is the
+        // opposite of what a frame-budget-bound emulator needs.
         if (getSharedPreferences(SettingsActivity.PREFS, MODE_PRIVATE)
                 .getBoolean("show_fps", false))
             startFpsOverlay();

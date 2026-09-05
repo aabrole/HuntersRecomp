@@ -74,3 +74,15 @@ Findings
 - Remaining budget: ~3.5 ms/frame of the emulation time is the emu thread waiting on the compute renderer's sync at 4x internal resolution (profile_totals.gpu3d_compute_sync_ns). 3x is the recommended setting until that sync is pipelined.
 
 Reproducibility: alias/entry-point seeds are addresses only (coverage/*.json in the bank generator); runtime bank images come from the player's own session and are not committed.
+
+| 7 | + run-head roots inside the runtime-swapped ITCM page (last hot spot) | 58.3 | 13.4 / 16.3 | 227 | 636 |
+| 8 | emu thread on cpu5-7 only, sustained-performance mode removed (neutral) | 58.5 | 12.3 / 15.7 | 170 | ~600 |
+
+3x vs 4x on the same window (round 7 engine): 3x halves the remaining underruns
+(227 -> 110) and cuts the compute-renderer sync from ~3.5 ms to ~1 ms per frame.
+On the attract-loop gameplay demos at 3x: 59.3 fps average, ~3 underruns/s,
+emulation 13.9 ms/frame average with bursts to 17 ms. The interpreter is gone
+(600 instr/s); what remains is the recompiled CPU work plus ~2.5 ms/frame of
+synchronous present on the emulation thread. Next engineering item for a true
+locked 60: move present/second-screen blit off the emulation thread.
+Recommended setting on Thor: 3x internal resolution (the app default).

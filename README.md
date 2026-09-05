@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://youtube.com/shorts/t5mwzJvtyqY">
-    <img src="docs/media/gameplay-thor.png" width="420" alt="Metroid Prime Hunters running on the AYN Thor" />
+    <img src="docs/media/hero-thor.png" width="420" alt="Metroid Prime Hunters running on the AYN Thor" />
   </a>
   <br/>
   <sub><b><a href="https://youtube.com/shorts/t5mwzJvtyqY">▶ Watch: dual-screen gameplay on the Thor</a></b></sub>

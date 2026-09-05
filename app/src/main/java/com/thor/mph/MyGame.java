@@ -67,7 +67,10 @@ public class MyGame extends SDLActivity {
 
     @Override
     protected String[] getArguments() {
-        return new String[] {
+        android.content.SharedPreferences prefs =
+            getSharedPreferences(SettingsActivity.PREFS, MODE_PRIVATE);
+        java.util.ArrayList<String> args = new java.util.ArrayList<>();
+        java.util.Collections.addAll(args,
             biosDir, "0",
             "--rom", romPath,
             "--config", cfgPath,
@@ -75,23 +78,32 @@ public class MyGame extends SDLActivity {
             "--boot", "direct",
             "--generated-firmware",
             "--interactive",
-            // SDL on Android permits only one window; the SDL window stacks
-            // both DS screens on the main display. The bottom screen is ALSO
-            // mirrored to the Thor's second physical display via a Presentation.
+            // SDL on Android permits only one window; the top screen fills it
+            // and the bottom screen goes to the Thor's second physical display.
             "--screen-layout", "stacked",
             "--mph-prime-controls", "on",
-            // Enables AMHE0 direct-aim: right-stick (and touch) aim deltas are
-            // fed to the game's own aim fields. Without this the right stick
-            // moves but never drives the camera. Gates prime controls too
-            // (main.cpp: mph_mouse_aim_policy).
+            // AMHE0 direct-aim gate: right-stick/touch aim deltas feed the
+            // game's own aim fields (main.cpp: mph_mouse_aim_policy).
             "--relative-mouse-touch", "on",
-            "--mph-pad-aim-sensitivity", "100",
-            // HD: render the 3D engine at 3x internal resolution via the GLES
-            // compute renderer, with 2x texture filtering.
-            "--internal-resolution", "3",
-            "--texture-upscale", "2",
-            "--no-save",
-        };
+            "--no-save");
+        // ── User settings (SettingsActivity) ─────────────────────────────
+        args.add("--mph-pad-aim-sensitivity");
+        args.add(String.valueOf(prefs.getInt("aim_sens", 100)));
+        args.add("--mph-virtual-stylus-sensitivity");
+        args.add(String.valueOf(prefs.getInt("stylus_sens", 20)));
+        args.add("--relative-mouse-invert-y");
+        args.add(prefs.getBoolean("invert_y", false) ? "on" : "off");
+        args.add("--internal-resolution");
+        args.add(prefs.getString("internal_res", "3"));
+        args.add("--texture-upscale");
+        args.add(prefs.getString("tex_upscale", "2"));
+        for (String[] action : SettingsActivity.ACTIONS) {
+            String bound = prefs.getString("bind_" + action[0], action[2]);
+            if (bound.equals(action[2])) continue;  // engine default
+            args.add("--mph-pad-bind-" + action[0]);
+            args.add(bound);
+        }
+        return args.toArray(new String[0]);
     }
 
     private void setupSecondDisplay() {

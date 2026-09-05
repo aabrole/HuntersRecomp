@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Octolith: stylized octahedral crystal, original flat-facet art. -->
+    <!-- Soft glow rings -->
+    <path android:fillColor="#FF7828" android:fillAlpha="0.11"
+        android:pathData="M54,20 L86,54 L54,88 L22,54 Z" />
+    <path android:fillColor="#FF7828" android:fillAlpha="0.18"
+        android:pathData="M54,24 L82,54 L54,84 L26,54 Z" />
+    <!-- Facets -->
+    <path android:fillColor="#FFC061" android:pathData="M54,28 L78,54 L54,54 Z" />
+    <path android:fillColor="#FF8A3D" android:pathData="M54,28 L54,54 L30,54 Z" />
+    <path android:fillColor="#A01414" android:pathData="M30,54 L54,54 L54,80 Z" />
+    <path android:fillColor="#C21A1A" android:pathData="M54,54 L78,54 L54,80 Z" />
+    <!-- Center highlight -->
+    <path android:fillColor="#FFF0D0" android:fillAlpha="0.92"
+        android:pathData="M54,47 L60,54 L54,61 L48,54 Z" />
+    <!-- Facet edge lines -->
+    <path android:strokeColor="#2A0808" android:strokeWidth="1.4"
+        android:fillColor="#00000000"
+        android:pathData="M54,28 L54,80 M30,54 L78,54 M54,28 L78,54 L54,80 L30,54 Z" />
+</vector>

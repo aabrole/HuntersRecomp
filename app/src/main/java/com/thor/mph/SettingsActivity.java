@@ -92,11 +92,16 @@ public class SettingsActivity extends Activity {
         title.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
         title.setLetterSpacing(0.12f);
         TextView sub = new TextView(this);
-        sub.setText("Metroid Prime Hunters native port · AYN Thor");
+        sub.setText("Metroid Prime Hunters © 2006 Nintendo · Developed by NST");
         sub.setTextColor(DIM);
         sub.setTextSize(13);
+        TextView sub2 = new TextView(this);
+        sub2.setText("Recomped for AYN Thor · github.com/aabrole");
+        sub2.setTextColor(ACCENT);
+        sub2.setTextSize(13);
         titles.addView(title);
         titles.addView(sub);
+        titles.addView(sub2);
         header.addView(titles);
         root.addView(header);
 

@@ -31,6 +31,24 @@ import android.widget.TextView;
 public class SettingsActivity extends Activity {
     static final String PREFS = "hunters_recomp";
 
+    // Browse mode of the RetroAchievements client (retroachievements.cpp):
+    // returns the game's achievement list with this account's unlock state.
+    static native String nativeRaBrowse(String user, String token,
+                                        String romPath, String hashOverride);
+    static boolean nativeLoaded = false;
+    static {
+        try {
+            System.loadLibrary("SDL2");
+            System.loadLibrary("main");
+            nativeLoaded = true;
+        } catch (Throwable t) {
+            android.util.Log.w("ThorMPH", "native lib not loaded for settings: " + t);
+        }
+    }
+    // Shared with the second-screen companion.
+    static int raUnlocked = -1, raTotal = -1, raPoints = 0;
+    static String raGameTitle = null;
+
     // action key -> [label, default binding] (runner --mph-pad-bind-<action>)
     static final String[][] ACTIONS = {
         {"jump", "Jump", "Pad A"},
@@ -428,6 +446,77 @@ public class SettingsActivity extends Activity {
         raNote.setTextSize(12);
         raNote.setPadding(0, dp(6), 0, 0);
         ra.addView(raNote);
+
+        // ── Achievements browser (after login) ───────────────────────────
+        LinearLayout ach = card(root, "ACHIEVEMENTS");
+        TextView achInfo = new TextView(this);
+        achInfo.setTextColor(DIM);
+        achInfo.setTextSize(13);
+        ach.addView(achInfo);
+        LinearLayout achList = new LinearLayout(this);
+        achList.setOrientation(LinearLayout.VERTICAL);
+        Button achLoad = new Button(this);
+        achLoad.setText("LOAD ACHIEVEMENTS");
+        achLoad.setTextColor(ACCENT);
+        achLoad.setBackgroundColor(Color.parseColor("#1F2630"));
+        LinearLayout.LayoutParams achLp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(44));
+        achLp.topMargin = dp(6);
+        ach.addView(achLoad, achLp);
+        ach.addView(achList);
+        Runnable paintAchState = () -> {
+            boolean loggedIn = !prefs.getString("ra_token", "").isEmpty();
+            achInfo.setText(loggedIn
+                ? "Fetches Metroid Prime Hunters' achievement list with your "
+                  + "unlock state from retroachievements.org."
+                : "Log in to RetroAchievements first (save your login and start "
+                  + "the game once); this section unlocks after that.");
+            achLoad.setVisibility(loggedIn ? View.VISIBLE : View.GONE);
+        };
+        paintAchState.run();
+        achLoad.setOnClickListener(v -> {
+            if (!nativeLoaded) { achInfo.setText("Native client unavailable."); return; }
+            achLoad.setEnabled(false);
+            achInfo.setText("Loading from retroachievements.org…");
+            achList.removeAllViews();
+            final String user = prefs.getString("ra_user", "");
+            final String token = prefs.getString("ra_token", "");
+            final String rom = romFile().getAbsolutePath();
+            final String over = prefs.getBoolean("ra_hash_override", false)
+                ? "b6947e630bcf9e68aa3cf998d89357ac" : "";
+            try { MyGame.nativeRaBind(); } catch (Throwable ignored) {}
+            new Thread(() -> {
+                String json;
+                try { json = nativeRaBrowse(user, token, rom, over); }
+                catch (Throwable t) { json = "{\"error\":\"" + t + "\"}"; }
+                final String result = json;
+                runOnUiThread(() -> {
+                    achLoad.setEnabled(true);
+                    try {
+                        org.json.JSONObject o = new org.json.JSONObject(result);
+                        if (o.has("error")) {
+                            achInfo.setText("Could not load: " + o.getString("error"));
+                            return;
+                        }
+                        raGameTitle = o.optString("game", "");
+                        raUnlocked = o.optInt("unlocked", 0);
+                        raTotal = o.optInt("total", 0);
+                        raPoints = o.optInt("points", 0);
+                        achInfo.setText(raGameTitle + ": " + raUnlocked + " of "
+                            + raTotal + " unlocked · " + raPoints + " points");
+                        org.json.JSONArray arr = o.getJSONArray("achievements");
+                        for (int i = 0; i < arr.length(); ++i)
+                            achList.addView(achievementRow(arr.getJSONObject(i)));
+                        if (companionView != null) companionView.postInvalidate();
+                    } catch (Exception e) {
+                        achInfo.setText("Could not parse the response: " + e.getMessage());
+                    }
+                });
+            }, "ra-browse").start();
+        });
+        prefs.registerOnSharedPreferenceChangeListener((sp, key) -> {
+            if ("ra_token".equals(key)) paintAchState.run();
+        });
 
         // ── Diagnostics sharing ──────────────────────────────────────────
         Button share = new Button(this);
@@ -830,6 +919,22 @@ public class SettingsActivity extends Activity {
                 paint.setTypeface(Typeface.DEFAULT);
                 cv.drawText(rows[i][1], colx + u * 6.2f, rowy, paint);
             }
+            // RA progress (after Load Achievements)
+            if (raTotal > 0) {
+                float py = h - u * 4.2f;
+                paint.setTextAlign(android.graphics.Paint.Align.CENTER);
+                paint.setColor(TEXT); paint.setTextSize(u * 1.05f);
+                paint.setTypeface(Typeface.DEFAULT_BOLD);
+                cv.drawText((raGameTitle == null ? "" : raGameTitle + "  ·  ")
+                    + raUnlocked + " / " + raTotal + " achievements  ·  "
+                    + raPoints + " pts", w / 2f, py, paint);
+                float bx = w * 0.12f, bw2 = w * 0.76f, by = py + u * 0.8f, bh2 = u * 0.8f;
+                paint.setColor(Color.parseColor("#3A414B"));
+                cv.drawRoundRect(new android.graphics.RectF(bx, by, bx + bw2, by + bh2), u, u, paint);
+                paint.setColor(ACCENT);
+                cv.drawRoundRect(new android.graphics.RectF(bx, by,
+                    bx + bw2 * raUnlocked / (float) raTotal, by + bh2), u, u, paint);
+            }
             // Footer: current video settings + RA status
             String res = prefs.getString("internal_res", "3") + "x";
             String tex = prefs.getString("tex_upscale", "4") + "x";
@@ -844,6 +949,64 @@ public class SettingsActivity extends Activity {
             paint.setTextSize(u * 1.0f);
             cv.drawText(foot, w / 2f, h - u * 0.9f, paint);
         }
+    }
+
+    private View achievementRow(org.json.JSONObject a) {
+        boolean unlocked = a.optBoolean("unlocked", false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(8), 0, dp(8));
+        ImageView badge = new ImageView(this);
+        badge.setAlpha(unlocked ? 1f : 0.45f);
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(dp(48), dp(48));
+        bl.rightMargin = dp(12);
+        row.addView(badge, bl);
+        loadBadge(badge, a.optString("badge", ""));
+        LinearLayout text = new LinearLayout(this);
+        text.setOrientation(LinearLayout.VERTICAL);
+        TextView title = new TextView(this);
+        title.setText(a.optString("title", "") + "  · " + a.optInt("points", 0) + " pts");
+        title.setTextColor(unlocked ? TEXT : DIM);
+        title.setTextSize(14);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        TextView desc = new TextView(this);
+        String when = "";
+        long t = a.optLong("unlock_time", 0);
+        if (unlocked && t > 0)
+            when = "  · unlocked " + java.text.DateFormat.getDateInstance()
+                .format(new java.util.Date(t * 1000L));
+        desc.setText(a.optString("description", "") + when);
+        desc.setTextColor(DIM);
+        desc.setTextSize(12);
+        text.addView(title);
+        text.addView(desc);
+        row.addView(text, new LinearLayout.LayoutParams(0,
+            ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView state = new TextView(this);
+        state.setText(unlocked ? "✓" : "○");
+        state.setTextColor(unlocked ? Color.parseColor("#7FC97F") : DIM);
+        state.setTextSize(18);
+        state.setPadding(dp(8), 0, 0, 0);
+        row.addView(state);
+        return row;
+    }
+
+    private static final java.util.Map<String, android.graphics.Bitmap> badgeCache =
+        new java.util.HashMap<>();
+
+    private void loadBadge(ImageView into, String url) {
+        if (url.isEmpty()) return;
+        android.graphics.Bitmap cached = badgeCache.get(url);
+        if (cached != null) { into.setImageBitmap(cached); return; }
+        new Thread(() -> {
+            try (java.io.InputStream in = new java.net.URL(url).openStream()) {
+                android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeStream(in);
+                if (bmp == null) return;
+                synchronized (badgeCache) { badgeCache.put(url, bmp); }
+                runOnUiThread(() -> into.setImageBitmap(bmp));
+            } catch (Exception ignored) {}
+        }, "ra-badge").start();
     }
 
     private int dp(int v) {

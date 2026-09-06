@@ -34,6 +34,86 @@ public class MyGame extends SDLActivity {
                                                       boolean down);
     public static native void nativeSetSecondScreenStretch(boolean stretch);
     public static native void nativeFlushDurableState();
+    // RetroAchievements bridge (retroachievements.cpp).
+    public static native void nativeRaBind();
+    public static native void nativeRaHttpResponse(long id, int status,
+                                                   byte[] body);
+    public static volatile MyGame instance;
+
+    /** Called from the emulation thread: perform the HTTP request off-thread
+     *  and hand the response back to native, which dispatches it on its own
+     *  thread. Status -1 signals a client-side failure (rc_client retries). */
+    public static void raHttpRequest(final long id, final String url,
+                                     final String post, final String type) {
+        new Thread(() -> {
+            int status = -1;
+            byte[] body = new byte[0];
+            try {
+                java.net.HttpURLConnection c = (java.net.HttpURLConnection)
+                    new java.net.URL(url).openConnection();
+                c.setConnectTimeout(15000);
+                c.setReadTimeout(30000);
+                c.setRequestProperty("User-Agent",
+                    "HuntersRecomp/" + versionName() + " rcheevos");
+                if (post != null) {
+                    c.setDoOutput(true);
+                    c.setRequestMethod("POST");
+                    c.setRequestProperty("Content-Type",
+                        type != null ? type
+                                     : "application/x-www-form-urlencoded");
+                    byte[] data = post.getBytes("UTF-8");
+                    c.setFixedLengthStreamingMode(data.length);
+                    try (java.io.OutputStream out = c.getOutputStream()) {
+                        out.write(data);
+                    }
+                }
+                status = c.getResponseCode();
+                java.io.InputStream in = status >= 400 ? c.getErrorStream()
+                                                       : c.getInputStream();
+                if (in != null) {
+                    java.io.ByteArrayOutputStream bo =
+                        new java.io.ByteArrayOutputStream();
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+                    body = bo.toByteArray();
+                    in.close();
+                }
+            } catch (Exception e) {
+                android.util.Log.w("ThorMPH", "RA http failed: " + e);
+            }
+            nativeRaHttpResponse(id, status, body);
+        }, "ra-http").start();
+    }
+
+    private static String versionName() {
+        try {
+            MyGame a = instance;
+            if (a == null) return "?";
+            return a.getPackageManager().getPackageInfo(a.getPackageName(), 0)
+                .versionName;
+        } catch (Exception e) { return "?"; }
+    }
+
+    /** Unlock / status pop-up. Shown on the main screen as a toast and
+     *  mirrored to the second screen's notification strip when present. */
+    public static void raNotify(final String title, final String body) {
+        final MyGame a = instance;
+        if (a == null) return;
+        a.runOnUiThread(() -> {
+            android.widget.Toast.makeText(a, title + "\n" + body,
+                android.widget.Toast.LENGTH_LONG).show();
+        });
+    }
+
+    /** Persist the session token so later launches skip the password. */
+    public static void raStoreToken(String user, String token) {
+        final MyGame a = instance;
+        if (a == null) return;
+        a.getSharedPreferences(SettingsActivity.PREFS, MODE_PRIVATE).edit()
+            .putString("ra_user", user).putString("ra_token", token)
+            .remove("ra_password").apply();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +125,8 @@ public class MyGame extends SDLActivity {
         romPath = new File(dir, "mph.nds").getAbsolutePath();
 
         super.onCreate(savedInstanceState);
+        instance = this;
+        try { nativeRaBind(); } catch (Throwable ignored) {}
         // NOTE: setSustainedPerformanceMode(true) was tried and removed: it
         // caps CPU/GPU clocks at a thermally sustainable level, which is the
         // opposite of what a frame-budget-bound emulator needs.
@@ -153,12 +235,25 @@ public class MyGame extends SDLActivity {
         args.add(prefs.getString("internal_res", "3"));
         args.add("--texture-upscale");
         args.add(prefs.getString("tex_upscale", "2"));
+        // RetroAchievements: login by stored token, else by password once.
+        if (prefs.getBoolean("ra_enabled", false)
+                && !prefs.getString("ra_user", "").isEmpty()) {
+            args.add("--ra-user");
+            args.add(prefs.getString("ra_user", ""));
+            String token = prefs.getString("ra_token", "");
+            String pw = prefs.getString("ra_password", "");
+            if (!token.isEmpty()) { args.add("--ra-token"); args.add(token); }
+            else if (!pw.isEmpty()) { args.add("--ra-password"); args.add(pw); }
+            args.add("--ra-hardcore");
+            args.add(prefs.getBoolean("ra_hardcore", false) ? "on" : "off");
+        }
         for (String[] action : SettingsActivity.ACTIONS) {
             String bound = prefs.getString("bind_" + action[0], action[2]);
             if (bound.equals(action[2])) continue;  // engine default
             args.add("--mph-pad-bind-" + action[0]);
             args.add(bound);
         }
+        android.util.Log.i("ThorMPH", "runner args: " + args);
         return args.toArray(new String[0]);
     }
 

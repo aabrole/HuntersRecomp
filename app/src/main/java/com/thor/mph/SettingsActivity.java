@@ -154,6 +154,7 @@ public class SettingsActivity extends Activity {
         root.setPadding(pad, pad, pad, pad);
         scroll.addView(root);
         setContentView(scroll);
+        showCompanion();
 
         // ── Header ───────────────────────────────────────────────────────
         LinearLayout header = new LinearLayout(this);
@@ -278,8 +279,17 @@ public class SettingsActivity extends Activity {
         resNote.setPadding(0, dp(2), 0, dp(8));
         video.addView(resNote);
         addSpinner(video, "Texture upscaling (xBR)", "tex_upscale",
-            new String[]{"Off", "2x", "4x"},
-            new String[]{"1", "2", "4"}, "2");
+            new String[]{"Off (native textures)", "2x",
+                         "4x · recommended"},
+            new String[]{"1", "2", "4"}, "4");
+        TextView texNote = new TextView(this);
+        texNote.setText("xBR runs once per texture on the GPU and is cached, "
+            + "so 4x costs almost nothing per frame. All Thor performance "
+            + "numbers were measured at 4x.");
+        texNote.setTextColor(DIM);
+        texNote.setTextSize(12);
+        texNote.setPadding(0, dp(2), 0, dp(8));
+        video.addView(texNote);
         addSpinner(video, "Bottom screen", "bottom_aspect",
             new String[]{"Original 4:3", "Stretch to fill"},
             new String[]{"fit", "stretch"}, "fit");
@@ -320,6 +330,76 @@ public class SettingsActivity extends Activity {
             recreate();
         });
         binds.addView(reset);
+
+        // ── RetroAchievements ────────────────────────────────────────────
+        LinearLayout ra = card(root, "RETROACHIEVEMENTS");
+        TextView raStatus = new TextView(this);
+        raStatus.setTextSize(13);
+        raStatus.setPadding(0, 0, 0, dp(8));
+        Runnable paintRaStatus = () -> {
+            String u = prefs.getString("ra_user", "");
+            boolean tok = !prefs.getString("ra_token", "").isEmpty();
+            boolean pw = !prefs.getString("ra_password", "").isEmpty();
+            if (u.isEmpty() || (!tok && !pw)) {
+                raStatus.setText("Not logged in. Enter your retroachievements.org "
+                    + "username and password; login happens when the game starts "
+                    + "and a session token is kept so the password is used once.");
+                raStatus.setTextColor(DIM);
+            } else if (tok) {
+                raStatus.setText("Logged in as " + u + " (session token saved)");
+                raStatus.setTextColor(Color.parseColor("#7FC97F"));
+            } else {
+                raStatus.setText("Will log in as " + u + " at next launch");
+                raStatus.setTextColor(Color.parseColor("#E8C468"));
+            }
+        };
+        paintRaStatus.run();
+        ra.addView(raStatus);
+        android.widget.EditText raUser = new android.widget.EditText(this);
+        raUser.setHint("RetroAchievements username");
+        raUser.setSingleLine(true);
+        raUser.setTextColor(TEXT);
+        raUser.setHintTextColor(DIM);
+        raUser.setText(prefs.getString("ra_user", ""));
+        ra.addView(raUser);
+        android.widget.EditText raPass = new android.widget.EditText(this);
+        raPass.setHint("Password (stored only until the first login)");
+        raPass.setSingleLine(true);
+        raPass.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+            | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        raPass.setTextColor(TEXT);
+        raPass.setHintTextColor(DIM);
+        raPass.setText(prefs.getString("ra_password", ""));
+        ra.addView(raPass);
+        Button raSave = new Button(this);
+        raSave.setText("SAVE LOGIN");
+        raSave.setTextColor(ACCENT);
+        raSave.setBackgroundColor(Color.parseColor("#1F2630"));
+        raSave.setOnClickListener(v -> {
+            String u = raUser.getText().toString().trim();
+            String pw = raPass.getText().toString();
+            SharedPreferences.Editor e = prefs.edit().putString("ra_user", u);
+            if (!u.equals(prefs.getString("ra_user", ""))) e.remove("ra_token");
+            if (!pw.isEmpty()) { e.putString("ra_password", pw); e.remove("ra_token"); }
+            e.putBoolean("ra_enabled", !u.isEmpty()).apply();
+            paintRaStatus.run();
+            android.widget.Toast.makeText(this, "Saved. Login runs at game start.",
+                android.widget.Toast.LENGTH_SHORT).show();
+        });
+        LinearLayout.LayoutParams raLp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(44));
+        raLp.topMargin = dp(6);
+        ra.addView(raSave, raLp);
+        addSwitch(ra, "Enable RetroAchievements", "ra_enabled", false);
+        addSwitch(ra, "Hardcore mode (disables fast-forward)", "ra_hardcore", false);
+        TextView raNote = new TextView(this);
+        raNote.setText("Unlocks pop up on screen and are submitted to your "
+            + "retroachievements.org profile (Metroid Prime Hunters, game 1378). "
+            + "Hardcore counts only when it was on for the whole session.");
+        raNote.setTextColor(DIM);
+        raNote.setTextSize(12);
+        raNote.setPadding(0, dp(6), 0, 0);
+        ra.addView(raNote);
 
         // ── Diagnostics sharing ──────────────────────────────────────────
         Button share = new Button(this);
@@ -540,6 +620,179 @@ public class SettingsActivity extends Activity {
             android.widget.Toast.makeText(this,
                 "Could not build diagnostics zip: " + e.getMessage(),
                 android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    // ── Second-screen companion ──────────────────────────────────────────
+    // While the launcher is open on the main panel, the Thor's bottom panel
+    // shows a live controller map of the current bindings plus the two
+    // shortcuts people miss most. Redrawn whenever a setting changes.
+    private android.app.Presentation companion;
+    private CompanionView companionView;
+    private final SharedPreferences.OnSharedPreferenceChangeListener
+        companionRefresh = (sp, key) -> {
+            if (companionView != null) companionView.postInvalidate();
+        };
+
+    private void showCompanion() {
+        if (companion != null) return;
+        android.hardware.display.DisplayManager dm =
+            (android.hardware.display.DisplayManager)
+                getSystemService(DISPLAY_SERVICE);
+        if (dm == null) return;
+        android.view.Display target = null;
+        for (android.view.Display d : dm.getDisplays()) {
+            android.util.Log.i("ThorMPH", "companion: display " + d.getDisplayId()
+                + " flags=" + d.getFlags() + " " + d.getName());
+            if (d.getDisplayId() != android.view.Display.DEFAULT_DISPLAY
+                    && (target == null
+                        || (d.getFlags() & android.view.Display.FLAG_PRESENTATION) != 0))
+                target = d;
+        }
+        if (target == null) { android.util.Log.w("ThorMPH", "companion: no second display"); return; }
+        companionView = new CompanionView(this);
+        android.app.Presentation p = new android.app.Presentation(this, target);
+        p.setContentView(companionView);
+        p.setOnDismissListener(d -> { companion = null; companionView = null; });
+        try { p.show(); companion = p;
+              android.util.Log.i("ThorMPH", "companion: shown on display " + target.getDisplayId()); }
+        catch (Exception e) { android.util.Log.e("ThorMPH", "companion: show failed", e);
+                              companion = null; companionView = null; }
+        prefs.registerOnSharedPreferenceChangeListener(companionRefresh);
+    }
+
+    @Override
+    protected void onDestroy() {
+        prefs.unregisterOnSharedPreferenceChangeListener(companionRefresh);
+        if (companion != null) { companion.dismiss(); companion = null; }
+        super.onDestroy();
+    }
+
+    private String bound(String action) {
+        for (String[] a : ACTIONS)
+            if (a[0].equals(action))
+                return prefs.getString("bind_" + action, a[2]);
+        return "None";
+    }
+
+    /** Which action is on a given pad button, per current bindings. */
+    private String actionOn(String pad) {
+        StringBuilder sb = new StringBuilder();
+        for (String[] a : ACTIONS) {
+            if (prefs.getString("bind_" + a[0], a[2]).equals(pad)) {
+                if (sb.length() > 0) sb.append(" / ");
+                sb.append(a[1]);
+            }
+        }
+        return sb.length() == 0 ? "—" : sb.toString();
+    }
+
+    private final class CompanionView extends View {
+        private final android.graphics.Paint paint =
+            new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        CompanionView(android.content.Context c) { super(c); }
+
+        private void label(android.graphics.Canvas cv, float x, float y,
+                           String key, String value, float size, boolean right) {
+            paint.setTextAlign(right ? android.graphics.Paint.Align.RIGHT
+                                     : android.graphics.Paint.Align.LEFT);
+            paint.setTextSize(size);
+            paint.setColor(ACCENT);
+            paint.setTypeface(Typeface.DEFAULT_BOLD);
+            cv.drawText(key, x, y, paint);
+            paint.setColor(TEXT);
+            paint.setTypeface(Typeface.DEFAULT);
+            cv.drawText(value, x, y + size * 1.15f, paint);
+        }
+
+        @Override protected void onDraw(android.graphics.Canvas cv) {
+            int w = getWidth(), h = getHeight();
+            cv.drawColor(BG);
+            float u = Math.min(w, h) / 40f;  // layout unit
+            // Header
+            paint.setTextAlign(android.graphics.Paint.Align.CENTER);
+            paint.setColor(TEXT);
+            paint.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+            paint.setTextSize(u * 2.6f);
+            cv.drawText("HUNTERS RECOMP", w / 2f, u * 3.2f, paint);
+            paint.setColor(DIM);
+            paint.setTypeface(Typeface.DEFAULT);
+            paint.setTextSize(u * 1.1f);
+            cv.drawText("Controller map · live from your bindings", w / 2f, u * 4.8f, paint);
+            // Controller body
+            float cx = w / 2f, cy = h * 0.40f;
+            float bw = w * 0.86f, bh = u * 13f;
+            android.graphics.RectF body = new android.graphics.RectF(
+                cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2);
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+            paint.setColor(CARD);
+            cv.drawRoundRect(body, u * 3, u * 3, paint);
+            paint.setStyle(android.graphics.Paint.Style.STROKE);
+            paint.setStrokeWidth(u * 0.25f);
+            paint.setColor(Color.parseColor("#2A3340"));
+            cv.drawRoundRect(body, u * 3, u * 3, paint);
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+            // Left stick (upper-left), right stick (lower-right), face buttons (upper-right)
+            float sx = body.left + bw * 0.16f, sy = cy - u * 1.5f;
+            float rx = body.right - bw * 0.32f, ry = cy + u * 2.5f;
+            float fx = body.right - bw * 0.12f, fy = cy - u * 2.8f, r = u * 1.05f;
+            paint.setColor(Color.parseColor("#3A414B"));
+            cv.drawCircle(sx, sy, u * 2.3f, paint);
+            cv.drawCircle(rx, ry, u * 2.3f, paint);
+            paint.setColor(ACCENT);
+            cv.drawCircle(sx, sy, u * 1.05f, paint);
+            cv.drawCircle(rx, ry, u * 1.05f, paint);
+            label(cv, sx - u * 2.3f, sy + u * 3.8f, "LEFT STICK", "Move", u * 0.95f, false);
+            label(cv, rx - u * 2.3f, ry + u * 3.8f, "RIGHT STICK", "Aim", u * 0.95f, false);
+            String[][] face = {{"Y", "-1", "0"}, {"X", "0", "-1"}, {"B", "1", "0"}, {"A", "0", "1"}};
+            for (String[] f : face) {
+                float bxp = fx + Integer.parseInt(f[1]) * u * 2.3f;
+                float byp = fy + Integer.parseInt(f[2]) * u * 2.3f;
+                paint.setColor(Color.parseColor("#4A5260"));
+                cv.drawCircle(bxp, byp, r, paint);
+                paint.setColor(TEXT);
+                paint.setTextAlign(android.graphics.Paint.Align.CENTER);
+                paint.setTextSize(u * 1.0f);
+                paint.setTypeface(Typeface.DEFAULT_BOLD);
+                cv.drawText(f[0], bxp, byp + u * 0.36f, paint);
+            }
+            // Binding legend, two columns under the body
+            float ly = body.bottom + u * 2.4f, lh = u * 2.3f;
+            String[][] rows = {
+                {"A", actionOn("Pad A")}, {"B", actionOn("Pad B")},
+                {"X", actionOn("Pad X")}, {"Y", actionOn("Pad Y")},
+                {"LB", actionOn("Pad LB")}, {"RB", actionOn("Pad RB")},
+                {"LT", actionOn("Pad LT")}, {"RT", actionOn("Pad RT")},
+                {"L3 / R3", actionOn("Pad L3") + " / " + actionOn("Pad R3")},
+                {"START", actionOn("Pad Start") + " · skips FMVs"},
+                {"SELECT (hold)", "Fast-forward"}, {"", ""},
+            };
+            for (int i = 0; i < rows.length; ++i) {
+                if (rows[i][0].isEmpty()) continue;
+                float colx = (i % 2 == 0) ? body.left : cx + u * 0.5f;
+                float rowy = ly + (i / 2) * lh;
+                paint.setTextAlign(android.graphics.Paint.Align.LEFT);
+                paint.setTextSize(u * 0.95f);
+                paint.setColor(ACCENT);
+                paint.setTypeface(Typeface.DEFAULT_BOLD);
+                cv.drawText(rows[i][0], colx, rowy, paint);
+                paint.setColor(TEXT);
+                paint.setTypeface(Typeface.DEFAULT);
+                cv.drawText(rows[i][1], colx + u * 6.2f, rowy, paint);
+            }
+            // Footer: current video settings + RA status
+            String res = prefs.getString("internal_res", "3") + "x";
+            String tex = prefs.getString("tex_upscale", "4") + "x";
+            String raU = prefs.getString("ra_user", "");
+            String foot = "Video " + res + " · xBR " + tex
+                + (prefs.getBoolean("ra_enabled", false) && !raU.isEmpty()
+                    ? " · RetroAchievements: " + raU
+                        + (prefs.getBoolean("ra_hardcore", false) ? " (hardcore)" : "")
+                    : "");
+            paint.setTextAlign(android.graphics.Paint.Align.CENTER);
+            paint.setColor(DIM);
+            paint.setTextSize(u * 1.0f);
+            cv.drawText(foot, w / 2f, h - u * 0.9f, paint);
         }
     }
 

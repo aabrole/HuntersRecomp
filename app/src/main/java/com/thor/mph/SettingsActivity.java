@@ -392,6 +392,23 @@ public class SettingsActivity extends Activity {
         ra.addView(raSave, raLp);
         addSwitch(ra, "Enable RetroAchievements", "ra_enabled", false);
         addSwitch(ra, "Hardcore mode (disables fast-forward)", "ra_hardcore", false);
+        addSwitch(ra, "Report RA's linked hash (rev 1) for this rev 0 dump",
+                  "ra_hash_override", false);
+        TextView raHashNote = new TextView(this);
+        raHashNote.setText("Hash notes: this port runs the USA rev 0 cartridge, "
+            + "whose RA hash is e4d94ad05dd5490e73ae9cb0b21f0d6b. "
+            + "retroachievements.org currently links only "
+            + "b6947e630bcf9e68aa3cf998d89357ac (rev 1) to game 1378, so rev 0 "
+            + "is reported as unknown. With this switch on, the app reports the "
+            + "linked rev 1 hash so the set loads. Know what that means: RA sees "
+            + "a rev 1 dump you are not running, unlocks (hardcore especially) "
+            + "may be treated as unsupported or revoked, and the set's memory "
+            + "addresses were written against rev 1. The real hash is logged "
+            + "every launch. The clean fix is asking RA to link the rev 0 hash.");
+        raHashNote.setTextColor(Color.parseColor("#E8C468"));
+        raHashNote.setTextSize(12);
+        raHashNote.setPadding(0, dp(4), 0, dp(4));
+        ra.addView(raHashNote);
         TextView raNote = new TextView(this);
         raNote.setText("Unlocks pop up on screen and are submitted to your "
             + "retroachievements.org profile (Metroid Prime Hunters, game 1378). "

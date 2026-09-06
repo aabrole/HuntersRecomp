@@ -274,6 +274,11 @@ public class MyGame extends SDLActivity {
             else if (!pw.isEmpty()) { args.add("--ra-password"); args.add(pw); }
             args.add("--ra-hardcore");
             args.add(prefs.getBoolean("ra_hardcore", false) ? "on" : "off");
+            if (prefs.getBoolean("ra_hash_override", false)) {
+                // RA's only linked hash for game 1378 (rev 1); user opt-in.
+                args.add("--ra-hash-override");
+                args.add("b6947e630bcf9e68aa3cf998d89357ac");
+            }
         }
         for (String[] action : SettingsActivity.ACTIONS) {
             String bound = prefs.getString("bind_" + action[0], action[2]);

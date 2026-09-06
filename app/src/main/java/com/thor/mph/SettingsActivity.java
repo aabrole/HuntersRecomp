@@ -859,8 +859,8 @@ public class SettingsActivity extends Activity {
             paint.setTextSize(u * 1.1f);
             cv.drawText("Controller map · live from your bindings", w / 2f, u * 4.8f, paint);
             // Controller body
-            float cx = w / 2f, cy = h * 0.40f;
-            float bw = w * 0.86f, bh = u * 13f;
+            float cx = w / 2f, cy = h * 0.36f;
+            float bw = w * 0.86f, bh = u * 11.5f;
             android.graphics.RectF body = new android.graphics.RectF(
                 cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2);
             paint.setStyle(android.graphics.Paint.Style.FILL);

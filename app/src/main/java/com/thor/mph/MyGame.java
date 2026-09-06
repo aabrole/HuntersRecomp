@@ -405,6 +405,13 @@ public class MyGame extends SDLActivity {
         frame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
             layoutRaStrip(frame.getWidth(), frame.getHeight()));
         Presentation p = new Presentation(this, target);
+        // A Presentation is a dialog and would take window focus from the
+        // SDL activity, which is where controller/button input is delivered.
+        // Without this flag the title screen ignores input until the user
+        // leaves and returns to the app. Touch on the SurfaceView does not
+        // need focus, so the bottom-screen stylus still works.
+        p.getWindow().addFlags(
+            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
         p.setContentView(frame);
         // If the system (or a hardware shortcut) dismisses the second-screen
         // window, forget it so the next onResume() rebuilds it. Without this

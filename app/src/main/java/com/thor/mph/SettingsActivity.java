@@ -680,6 +680,8 @@ public class SettingsActivity extends Activity {
         if (target == null) { android.util.Log.w("ThorMPH", "companion: no second display"); return; }
         companionView = new CompanionView(this);
         android.app.Presentation p = new android.app.Presentation(this, target);
+        p.getWindow().addFlags(
+            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
         p.setContentView(companionView);
         p.setOnDismissListener(d -> { companion = null; companionView = null; });
         try { p.show(); companion = p;

@@ -187,7 +187,8 @@ u/Chompsky___Honk, u/FyrusCarmin, u/JTiberius21
 
 **Playtesting and encouragement:** u/arnar62, u/Eyerone, u/Alexan_Hirdriel,
 u/LeSpermReceiver, u/galaxywalaxyz, u/marshmallown, u/HuttStuff_Here,
-u/blaster915, u/Rekusu7991, u/Gearheadjunky
+u/blaster915, u/Rekusu7991, u/Gearheadjunky, u/crazyredd88,
+u/MessiLeagueSoccer, u/Specialist-String286, u/Knuknuk425, u/HeidenShadows
 
 ## License and legal
 

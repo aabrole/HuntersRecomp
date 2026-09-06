@@ -691,10 +691,30 @@ public class SettingsActivity extends Activity {
         prefs.registerOnSharedPreferenceChangeListener(companionRefresh);
     }
 
-    @Override
-    protected void onDestroy() {
+    private void hideCompanion() {
         prefs.unregisterOnSharedPreferenceChangeListener(companionRefresh);
         if (companion != null) { companion.dismiss(); companion = null; }
+        companionView = null;
+    }
+
+    // The companion must exist only while this screen is in front: the
+    // activity stays alive (paused) behind the game, and a lingering
+    // Presentation would sit on top of the game's bottom screen.
+    @Override
+    protected void onResume() {
+        super.onResume();
+        showCompanion();
+    }
+
+    @Override
+    protected void onPause() {
+        hideCompanion();
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        hideCompanion();
         super.onDestroy();
     }
 

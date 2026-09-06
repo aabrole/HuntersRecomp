@@ -95,14 +95,42 @@ public class MyGame extends SDLActivity {
         } catch (Exception e) { return "?"; }
     }
 
-    /** Unlock / status pop-up. Shown on the main screen as a toast and
-     *  mirrored to the second screen's notification strip when present. */
+    private android.widget.TextView raStatusView, raBannerView;
+    private static String raStatusText;
+    private final android.os.Handler raHandler =
+        new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable raHideBanner = () -> {
+        if (raBannerView != null) raBannerView.setVisibility(android.view.View.GONE);
+    };
+
+    /** Unlock / status pop-up: toast on the main screen and a banner on the
+     *  bottom screen's RA strip that fades after a few seconds. */
     public static void raNotify(final String title, final String body) {
         final MyGame a = instance;
         if (a == null) return;
         a.runOnUiThread(() -> {
             android.widget.Toast.makeText(a, title + "\n" + body,
                 android.widget.Toast.LENGTH_LONG).show();
+            if (a.raBannerView != null) {
+                a.raBannerView.setText(title + "\n" + body);
+                a.raBannerView.setVisibility(android.view.View.VISIBLE);
+                a.raHandler.removeCallbacks(a.raHideBanner);
+                a.raHandler.postDelayed(a.raHideBanner, 7000);
+            }
+        });
+    }
+
+    /** Persistent line on the bottom screen: user, game progress, mode. */
+    public static void raStatus(final String line) {
+        raStatusText = line;
+        final MyGame a = instance;
+        if (a == null) return;
+        a.runOnUiThread(() -> {
+            if (a.raStatusView != null) {
+                a.raStatusView.setText(line);
+                a.raStatusView.setVisibility(line == null || line.isEmpty()
+                    ? android.view.View.GONE : android.view.View.VISIBLE);
+            }
         });
     }
 
@@ -304,8 +332,38 @@ public class MyGame extends SDLActivity {
             }
         });
 
+        android.widget.FrameLayout frame = new android.widget.FrameLayout(this);
+        frame.addView(view, new android.widget.FrameLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+        // RetroAchievements strip: persistent status at the bottom edge and
+        // unlock banners that fade out, drawn over the DS bottom screen.
+        raStatusView = new android.widget.TextView(this);
+        raStatusView.setTextColor(0xFFE8E2D8);
+        raStatusView.setTextSize(13);
+        raStatusView.setBackgroundColor(0x99000000);
+        int pad = Math.round(8 * getResources().getDisplayMetrics().density);
+        raStatusView.setPadding(pad, pad / 2, pad, pad / 2);
+        raStatusView.setVisibility(android.view.View.GONE);
+        frame.addView(raStatusView, new android.widget.FrameLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            android.view.Gravity.BOTTOM));
+        raBannerView = new android.widget.TextView(this);
+        raBannerView.setTextColor(0xFF14100A);
+        raBannerView.setBackgroundColor(0xF0FF8A3D);
+        raBannerView.setTextSize(15);
+        raBannerView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        raBannerView.setPadding(pad * 2, pad, pad * 2, pad);
+        raBannerView.setVisibility(android.view.View.GONE);
+        frame.addView(raBannerView, new android.widget.FrameLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            android.view.Gravity.TOP));
+        if (raStatusText != null) { raStatusView.setText(raStatusText);
+                                    raStatusView.setVisibility(android.view.View.VISIBLE); }
         Presentation p = new Presentation(this, target);
-        p.setContentView(view);
+        p.setContentView(frame);
         // If the system (or a hardware shortcut) dismisses the second-screen
         // window, forget it so the next onResume() rebuilds it. Without this
         // the stale reference blocks re-attach and the bottom screen never

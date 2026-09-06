@@ -83,6 +83,50 @@ consequences. The clean fix is a hash-link request to RA for rev 0
 3. Adjust settings if you like (3x internal resolution and xBR 4x are the
    recommended Thor settings), press **PLAY**.
 
+## Step by step: the reference Thor setup (what gets 50-60 fps)
+
+This is exactly how the developer's unit is set up, the one every number in
+this README was measured on (AYN Thor Pro 12 GB, firmware
+`Thor_V1.0.0.377`, Android 13, stock otherwise). Follow it and you should
+land in the same place.
+
+1. **Install the APK** from [Releases](../../releases). If you had an
+   older version, just install over it; settings and saves are kept.
+2. **Launch Hunters Recomp.** The launcher opens on the main panel and a
+   controller map appears on the bottom panel.
+3. **LOCATE ROM** and pick your own dump of *Metroid Prime Hunters (USA)*,
+   rev 0, 64 MiB. The app copies it in and checks the SHA-1
+   (`90164d1ac127ee5f9815ea4ae7de798c7b5fc629`). Rev 1, Europe, Japan and
+   trimmed dumps are rejected with the reason.
+4. **Video**: Internal resolution **3x** (recommended; 4x is sharper but the
+   CPU waits on the GPU each frame and audio can crackle), Texture
+   upscaling **4x**, Bottom screen **Original 4:3**.
+5. **Controls**: Right-stick aim sensitivity **55%**, Virtual stylus **20%**,
+   Invert aim Y **off**, Show FPS counter **on** (engine-true number,
+   top-right of the game). Leave the button bindings at their defaults
+   for the first session.
+6. **RetroAchievements** (optional): username + password, SAVE LOGIN,
+   Enable **on**. Login happens when the game starts; the password is
+   replaced by a session token after the first login. Read the hash note
+   before turning on the linked-hash switch.
+7. **Press PLAY.** Controls work on the title screen immediately. START
+   skips the intro FMVs; hold SELECT to fast-forward cinematics.
+8. **Save at the ship** as normal; the save is written to
+   `Android/data/com.thor.mph/files/mph.sav` and survives updates.
+9. **If it stutters**: check the FPS counter. Green 55+ is normal; if it sits
+   yellow or red, drop to 2x once to confirm it is not the GPU, then use
+   **Share Diagnostics** at the bottom of the settings screen and attach the
+   zip to an issue. The zip carries the per-second numbers that made the
+   performance work possible.
+
+Android side: gesture navigation, 120 Hz panel at the system default, no
+performance/game-mode apps needed. Cocoon Shell 3.04 is installed on the
+reference unit but not required.
+
+Expected on the reference unit: 58-59 fps in play, 3x, with the FMV intro
+at full speed. Full measurements in
+[docs/AUDIT-2026-09-05.md](docs/AUDIT-2026-09-05.md).
+
 ## Controls (defaults)
 
 | Input | Action |

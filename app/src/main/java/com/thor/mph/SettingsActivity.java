@@ -392,6 +392,17 @@ public class SettingsActivity extends Activity {
         ra.addView(raSave, raLp);
         addSwitch(ra, "Enable RetroAchievements", "ra_enabled", false);
         addSwitch(ra, "Hardcore mode (disables fast-forward)", "ra_hardcore", false);
+        addSwitch(ra, "RA status on the bottom screen (Original 4:3 only)",
+                  "ra_strip", false);
+        TextView raStripNote = new TextView(this);
+        raStripNote.setText("Off by default. When on, and the bottom screen is "
+            + "set to Original 4:3, the progress line sits in the bottom black "
+            + "bar and unlock banners in the top bar, never over the game. In "
+            + "Stretch mode nothing is drawn on the bottom screen.");
+        raStripNote.setTextColor(DIM);
+        raStripNote.setTextSize(12);
+        raStripNote.setPadding(0, dp(2), 0, dp(6));
+        ra.addView(raStripNote);
         addSwitch(ra, "Report RA's linked hash (rev 1) for this rev 0 dump",
                   "ra_hash_override", false);
         TextView raHashNote = new TextView(this);

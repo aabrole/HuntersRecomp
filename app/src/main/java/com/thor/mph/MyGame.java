@@ -111,7 +111,7 @@ public class MyGame extends SDLActivity {
         a.runOnUiThread(() -> {
             android.widget.Toast.makeText(a, title + "\n" + body,
                 android.widget.Toast.LENGTH_LONG).show();
-            if (a.raBannerView != null) {
+            if (a.raBannerView != null && a.raStripEnabled) {
                 a.raBannerView.setText(title + "\n" + body);
                 a.raBannerView.setVisibility(android.view.View.VISIBLE);
                 a.raHandler.removeCallbacks(a.raHideBanner);
@@ -119,6 +119,39 @@ public class MyGame extends SDLActivity {
             }
         });
     }
+
+    private boolean raStripAllowed() {
+        android.content.SharedPreferences prefs =
+            getSharedPreferences(SettingsActivity.PREFS, MODE_PRIVATE);
+        return prefs.getBoolean("ra_strip", false)
+            && prefs.getString("bottom_aspect", "fit").equals("fit");
+    }
+
+    /** Size the RA views to the letterbox bars of a 4:3 image on this panel. */
+    private void layoutRaStrip(int w, int h) {
+        if (raStatusView == null || raBannerView == null || w <= 0 || h <= 0) return;
+        int contentH = Math.round(w * 3f / 4f);
+        int bar = (h - contentH) / 2;   // top/bottom black bar height
+        boolean ok = raStripAllowed() && bar >= Math.round(
+            22 * getResources().getDisplayMetrics().density);
+        raStripEnabled = ok;
+        android.widget.FrameLayout.LayoutParams sl =
+            (android.widget.FrameLayout.LayoutParams) raStatusView.getLayoutParams();
+        android.widget.FrameLayout.LayoutParams bl =
+            (android.widget.FrameLayout.LayoutParams) raBannerView.getLayoutParams();
+        sl.height = ok ? bar : android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+        bl.height = ok ? bar : android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+        raStatusView.setLayoutParams(sl);
+        raBannerView.setLayoutParams(bl);
+        raStatusView.setGravity(android.view.Gravity.CENTER);
+        raBannerView.setGravity(android.view.Gravity.CENTER);
+        raStatusView.setBackgroundColor(0xFF000000);
+        raStatusView.setVisibility(ok && raStatusText != null && !raStatusText.isEmpty()
+            ? android.view.View.VISIBLE : android.view.View.GONE);
+        if (!ok) raBannerView.setVisibility(android.view.View.GONE);
+        if (ok && raStatusText != null) raStatusView.setText(raStatusText);
+    }
+    private boolean raStripEnabled = false;
 
     /** Persistent line on the bottom screen: user, game progress, mode. */
     public static void raStatus(final String line) {
@@ -128,8 +161,9 @@ public class MyGame extends SDLActivity {
         a.runOnUiThread(() -> {
             if (a.raStatusView != null) {
                 a.raStatusView.setText(line);
-                a.raStatusView.setVisibility(line == null || line.isEmpty()
-                    ? android.view.View.GONE : android.view.View.VISIBLE);
+                a.raStatusView.setVisibility(!a.raStripEnabled || line == null
+                    || line.isEmpty() ? android.view.View.GONE
+                                      : android.view.View.VISIBLE);
             }
         });
     }
@@ -365,8 +399,11 @@ public class MyGame extends SDLActivity {
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
             android.view.Gravity.TOP));
-        if (raStatusText != null) { raStatusView.setText(raStatusText);
-                                    raStatusView.setVisibility(android.view.View.VISIBLE); }
+        // Place the strip and banners inside the letterbox bars only: the
+        // user opts in, and only Original 4:3 mode has black bars. In stretch
+        // mode nothing is drawn over the DS bottom screen.
+        frame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
+            layoutRaStrip(frame.getWidth(), frame.getHeight()));
         Presentation p = new Presentation(this, target);
         p.setContentView(frame);
         // If the system (or a hardware shortcut) dismisses the second-screen

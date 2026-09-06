@@ -38,15 +38,33 @@ cartridge (see below). The app hash-verifies it and refuses anything else.
 ## Features
 
 - **True dual-screen**: top screen fills the Thor's main display, bottom
-  screen lives on the Thor's second panel with working touch (stylus) input
+  screen lives on the Thor's second panel with working touch (stylus) input,
+  in Original 4:3 or Stretch
 - **Twin-stick Prime controls**: left stick moves, right stick aims
-  (melonPrimeDS-style bindings), triggers shoot
+  (melonPrimeDS-style bindings), triggers shoot; every action rebindable
 - **HD rendering**: the desktop GL 4.3 compute renderer ported to GLES 3.2,
-  running on the Adreno 740 with up to 4x internal resolution and xBR texture
-  upscaling
-- **Settings launcher**: rebind every touchscreen-mapped action to physical
-  buttons, tune aim/stylus sensitivity, pick video quality
-- **Fast-forward**: hold SELECT to blitz through cinematics
+  up to 4x internal resolution and xBR texture upscaling (3x recommended)
+- **Performance**: the game's hot code is compiled to native banks (no
+  interpreter fallback in play); measured 58-59 fps with the interpreter
+  eliminated, see [docs/AUDIT-2026-09-05.md](docs/AUDIT-2026-09-05.md)
+- **RetroAchievements**: built-in rcheevos client with login, hardcore mode,
+  unlock pop-ups, an achievements browser in settings, and an optional RA
+  strip on the bottom screen (see the hash note below)
+- **Second-screen companion**: while the launcher is open, the bottom panel
+  shows a live controller map of your bindings and your RA progress
+- **Diagnostics**: engine-true FPS counter, one-tap "Share Diagnostics" zip
+  for bug reports, every session also records coverage that feeds the next
+  performance round
+- **Fast-forward**: hold SELECT to blitz through cinematics; START skips FMVs
+
+### RetroAchievements hash note
+
+This port runs the USA rev 0 cartridge. retroachievements.org currently
+links only the rev 1 hash to Metroid Prime Hunters (game 1378), so rev 0 is
+reported as unknown. The app has an opt-in switch (off by default) that
+reports the linked rev 1 hash so the set loads; the switch explains the
+consequences. The clean fix is a hash-link request to RA for rev 0
+(`e4d94ad05dd5490e73ae9cb0b21f0d6b`).
 
 ## Requirements
 
@@ -59,12 +77,11 @@ cartridge (see below). The app hash-verifies it and refuses anything else.
 ## Install
 
 1. Install the APK from [Releases](../../releases).
-2. Copy your ROM dump to the app's data folder as `mph.nds`:
-   ```
-   adb push "Metroid Prime Hunters.nds" /sdcard/Android/data/com.thor.mph/files/mph.nds
-   ```
-   (or copy it there with any file manager after launching the app once)
-3. Launch **Hunters Recomp**, adjust settings if you like, press **PLAY**.
+2. Launch **Hunters Recomp**, tap **LOCATE ROM** and pick your dump from
+   anywhere on the device. It is copied in and SHA-1 verified (wrong region or
+   revision is rejected with an explanation).
+3. Adjust settings if you like (3x internal resolution and xBR 4x are the
+   recommended Thor settings), press **PLAY**.
 
 ## Controls (defaults)
 
@@ -86,11 +103,14 @@ Everything is rebindable from the settings screen.
 ## Building from source
 
 The app shell (this repo) wraps the runner from the patched
-[aabrole/ndsrecomp](https://github.com/aabrole/ndsrecomp/tree/thor-android-port)
-fork (branch `thor-android-port`: Android/GLES/dual-screen support). The recompiled game
-banks are generated at build time from *your* ROM by the upstream
-[MetroidPrimeHuntersRecomp](https://github.com/mstan/MetroidPrimeHuntersRecomp)
-project; they are not distributed in source form.
+[aabrole/ndsrecomp](https://github.com/aabrole/ndsrecomp/tree/v022-golden)
+fork (branch `v022-golden`: Android/GLES/dual-screen/RetroAchievements). The
+recompiled game banks are generated at build time from *your* ROM by
+[aabrole/MetroidPrimeHuntersRecomp](https://github.com/aabrole/MetroidPrimeHuntersRecomp/tree/thor-golden)
+(branch `thor-golden`: upstream plus the Thor coverage seeds); they are not
+distributed in source form. Note: the runtime banks captured on the dev unit
+are not committed, so a fresh build starts a little slower until your own
+sessions' coverage is ingested (`tools/ingest_coverage_manifests.py`).
 
 ```
 # 1. Generate the game banks (needs your AMHE-0 ROM):
